@@ -10,8 +10,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
         <activity android:name=".log"></activity>
-        <activity android:name=".weightage" />
-        <activity android:name=".assesment" />
+        <activity android:name=".weightage_activity" />
+        <activity android:name=".assesment_activity" />
         <activity android:name=".home" />
         <activity android:name=".createProfile" />
         <activity android:name=".login">

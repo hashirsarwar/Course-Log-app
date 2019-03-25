@@ -7,13 +7,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
-
-import java.util.ArrayList;
+import java.util.List;
 
 public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.ViewHolder> {
 
-    private ArrayList<Course> courses;
+    private List<Course> courses;
     private OnItemClickListener listener;
     public interface OnItemClickListener {
         void onItemClick(View itemView,int position);
@@ -33,17 +31,12 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull ViewHolder viewHolder, int i) {
         Course c = courses.get(i);
-
-
         TextView tv = viewHolder.course;
         tv.setText(c.getName());
-
         tv = viewHolder.totalMarks;
-        tv.setText(Integer.toString(c.getTotalMarks()));
-
+        tv.setText(String.valueOf(c.getTotalMarks()));
         tv = viewHolder.obtainedMarks;
-        tv.setText(Float.toString(c.getObtainedMarks()));
-
+        tv.setText(String.valueOf(Math.round(c.getObtainedMarks())));
         float a = c.getObtainedMarks();
         float b = (float) c.getTotalMarks();
         float x,y=100;
@@ -52,7 +45,6 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.ViewHolder
             x=a/b;
             x=x*y;
             p.setProgress((int)x);
-
         }
     }
 
@@ -89,7 +81,7 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.ViewHolder
         }
     }
 
-    CourseAdapter(ArrayList<Course> l)
+    CourseAdapter(List<Course> l)
     {
         courses = l;
     }

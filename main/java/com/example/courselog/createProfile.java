@@ -1,6 +1,8 @@
 package com.example.courselog;
 
-import android.content.Intent;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -8,7 +10,6 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-
 
 public class createProfile extends AppCompatActivity {
 
@@ -26,7 +27,7 @@ public class createProfile extends AppCompatActivity {
         EditText name = (EditText) findViewById(R.id.editText6);
         EditText batch = (EditText) findViewById(R.id.editText7);
         EditText roll_no = (EditText) findViewById(R.id.editText8);
-        TextView error = (TextView) findViewById(R.id.textView42);
+        final TextView error = (TextView) findViewById(R.id.textView42);
         if(TextUtils.isEmpty(username.getText().toString()) || TextUtils.isEmpty(passwd.getText().toString()) || TextUtils.isEmpty(rt_passwd.getText().toString()) || TextUtils.isEmpty(name.getText().toString()) || TextUtils.isEmpty(batch.getText().toString()) || TextUtils.isEmpty(roll_no.getText().toString()) )
         {
             error.setText("Error: Enter all fields");
@@ -62,15 +63,39 @@ public class createProfile extends AppCompatActivity {
             error.setText("Error: Enter valid roll number");
             return;
         }
-
-        Intent userIntent = new Intent();
-        userIntent.putExtra("username",username.getText().toString());
-        userIntent.putExtra("password",passwd.getText().toString());
-        userIntent.putExtra("name",name.getText().toString());
-        userIntent.putExtra("batch",batch.getText().toString());
-        userIntent.putExtra("roll_no",roll_no.getText().toString());
-        setResult(RESULT_OK,userIntent);
-        Toast.makeText(this,"Profile Created Successfully",Toast.LENGTH_SHORT).show();
-        finish();
+        new AsyncTask<String,Void,String>()
+        {
+            @Override
+            protected void onPostExecute(String username) {
+                if(username==null)
+                    error.setText("Username already exists");
+                else {
+                    Toast.makeText(getApplicationContext(),"Profile Created",Toast.LENGTH_SHORT).show();
+                    //save username to shared preferences
+                    SharedPreferences sp = getSharedPreferences("usernameInfo", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sp.edit();
+                    editor.putString("username",username);
+                    editor.apply();
+                    finish();
+                }
+            }
+            @Override
+            protected String doInBackground(String... params) {
+                CourseLogDB courseLogDB = CourseLogDB.getInstance(getApplicationContext());
+                UserDao u = courseLogDB.userModel();
+                int check = u.findUser(params[1]);
+                if(check==0) {
+                    User user = new User();
+                    user.setName(params[0]);
+                    user.setUsername(params[1]);
+                    user.setBatch(params[2]);
+                    user.setPassword(params[3]);
+                    user.setRoll_no(params[4]);
+                    u.addUser(user);
+                    return params[1];
+                }
+                else return null;
+            }
+        }.execute(name.getText().toString(),username.getText().toString(),batch.getText().toString(),passwd.getText().toString(),roll_no.getText().toString());
     }
 }

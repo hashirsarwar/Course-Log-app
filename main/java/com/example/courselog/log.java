@@ -1,69 +1,89 @@
 package com.example.courselog;
 
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.os.AsyncTask;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.view.MotionEvent;
+import android.text.InputType;
 import android.view.View;
-import android.widget.Toast;
-
-import java.util.ArrayList;
+import android.widget.EditText;
+import java.util.List;
 
 public class log extends AppCompatActivity {
 
-    int pos=-1;
-    ArrayList<Course> alc = new ArrayList<>();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_log);
-
-        RecyclerView rvCourses = (RecyclerView) findViewById(R.id.rv);
-
-
-        alc.add(new Course("Software for Mobile Devices", 0, 0));
-        alc.add(new Course("Artificial Intelligence", 0, 0));
-        alc.add(new Course("Computer Networks", 0, 0));
-        alc.add(new Course("Software Engineering", 0, 0));
-        alc.add(new Course("Object Oriented Analysis and Design", 0, 0));
-
-        CourseAdapter ca = new CourseAdapter(alc);
-
-        ca.setOnItemClickListener(new CourseAdapter.OnItemClickListener() {
-            @Override
-            public void onItemClick(View view, int position) {
-                pos=position;
-                Intent i = new Intent(getApplicationContext(),home.class);
-                i.putExtra("name",getIntent().getStringExtra("name"));
-                i.putExtra("batch",getIntent().getStringExtra("batch"));
-                i.putExtra("roll_no",getIntent().getStringExtra("roll_no"));
-                i.putExtra("course",alc.get(position).getName());
-                startActivityForResult(i,1000);
-            }
-        });
-        rvCourses.setAdapter(ca);
-
-        rvCourses.setLayoutManager(new LinearLayoutManager(this));
-
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if(resultCode==RESULT_OK && requestCode==1000)
+    protected void onStart() {
+        super.onStart();
+        new AsyncTask<Void,Void,List<Course>>()
         {
-            Course c = alc.get(pos);
+            @Override
+            protected void onPostExecute(List<Course> courses) {
+                final List<Course> c =courses;
+                RecyclerView rvCourses = findViewById(R.id.rv);
+                CourseAdapter ca = new CourseAdapter(c);
+                ca.setOnItemClickListener(new CourseAdapter.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(View view, int position) {
+                        Intent i = new Intent(getApplicationContext(),home.class);
+                        i.putExtra("userID",getIntent().getIntExtra("userID",-1));
+                        i.putExtra("courseName",c.get(position).getName());
+                        startActivity(i);
+                    }
+                });
+                rvCourses.setAdapter(ca);
+                rvCourses.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
+            }
 
-            Course c2 = new Course(c.getName(),data.getFloatExtra("obtained",0),data.getIntExtra("total",0));
-            alc.set(pos,c2);
-            RecyclerView rvCourses = (RecyclerView) findViewById(R.id.rv);
-            rvCourses.getAdapter().notifyDataSetChanged();
+            @Override
+            protected List<Course> doInBackground(Void... voids) {
+                CourseLogDB courseLogDB = CourseLogDB.getInstance(getApplicationContext());
+                CourseDao courseDao=courseLogDB.courseModel();
+                final List<Course> courses=courseDao.getCourses(getIntent().getIntExtra("userID",-1));
+                return courses;
+            }
+        }.execute();
+    }
 
-        }
+    public void onAddClick(View view)
+    {
+        //insert new course in db
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        final EditText editText = new EditText(getApplicationContext());
+        editText.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        alert.setMessage("Enter course title");
+        alert.setView(editText);
+        alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                final String cname = editText.getText().toString();
+                new AsyncTask<Void,Void,Void>()
+                {
+                    @Override
+                    protected void onPostExecute(Void aVoid) {
+                        onStart();
+                    }
+
+                    @Override
+                    protected Void doInBackground(Void... voids) {
+                        CourseLogDB courseLogDB = CourseLogDB.getInstance(getApplicationContext());
+                        CourseDao courseDao=courseLogDB.courseModel();
+                        Course course = new Course(cname,getIntent().getIntExtra("userID",-1),0,0);
+                        courseDao.insertCourse(course);
+                        return null;
+                    }
+                }.execute();
+            }
+        });
+        alert.show();
     }
 }

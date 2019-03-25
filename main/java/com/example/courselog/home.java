@@ -1,6 +1,8 @@
 package com.example.courselog;
 
 import android.content.Intent;
+import android.os.AsyncTask;
+import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -10,164 +12,152 @@ import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import static java.sql.Types.NULL;
 
 public class home extends AppCompatActivity {
-    int final_w,assignment_w,mid1_w,mid2_w,project_w = NULL;
-    float final_a =-9999,assignment_a =-9999,mid1_a=-9999,mid2_a=-9999,project_a =-9999;
+    boolean flag;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
-
-        SpannableString ss=new SpannableString("Marks shown here are calculated absolutes based on the information added in the Assesments and Weightages");
+        flag=false;
+        SpannableString ss = new SpannableString("Marks shown here are calculated absolutes based on the information added in the Assessments and Weightages");
         ClickableSpan cs = new ClickableSpan() {
             @Override
             public void onClick(View view) {
-                startActivityForResult(new Intent(getApplicationContext(),assesment.class),2);
+                Intent i = new Intent(getApplicationContext(), assesment_activity.class);
+                i.putExtra("userID", getIntent().getIntExtra("userID", -1));
+                i.putExtra("courseName", getIntent().getStringExtra("courseName"));
+                startActivityForResult(i, 2);
             }
         };
-        ss.setSpan(cs,80,90, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ss.setSpan(cs, 80, 91, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         ClickableSpan cs2 = new ClickableSpan() {
             @Override
             public void onClick(View widget) {
-                startActivityForResult(new Intent(getApplicationContext(),weightage.class),1);
+                Intent i = new Intent(getApplicationContext(), weightage_activity.class);
+                i.putExtra("userID", getIntent().getIntExtra("userID", -1));
+                i.putExtra("courseName", getIntent().getStringExtra("courseName"));
+                startActivity(i);
             }
         };
-        ss.setSpan(cs2,95,105,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        TextView homeInfo =(TextView) findViewById(R.id.textView15);
+        ss.setSpan(cs2, 96, 106, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        TextView homeInfo = findViewById(R.id.textView15);
         homeInfo.setText(ss);
         homeInfo.setMovementMethod(LinkMovementMethod.getInstance());
-
-        TextView info = (TextView) findViewById(R.id.textView14);
-        info.setText(getIntent().getStringExtra("course"));
-        info = (TextView) findViewById(R.id.textView44);
-        info.setText(getIntent().getStringExtra("name"));
-        info = (TextView) findViewById(R.id.textView45);
-        info.setText(getIntent().getStringExtra("roll_no"));
-        info = (TextView) findViewById(R.id.textView46);
-        info.setText(getIntent().getStringExtra("batch"));
-
+        new myAsync().execute();
     }
 
-    public void onBackClick(View view)
+    @Override
+    protected void onStart() {
+        super.onStart();
+        myAsync2 obj = new myAsync2();
+        obj.execute();
+    }
+
+    private class myAsync2 extends AsyncTask<Void, Void, Wrapper> {
+        @Override
+        protected void onPostExecute(Wrapper wrapper) {
+            if (wrapper.weightage != null) {
+                TextView tv = findViewById(R.id.textView60);
+                tv.setText(String.valueOf(wrapper.weightage.getAssignments()));
+                tv = findViewById(R.id.textView64);
+                tv.setText(String.valueOf(wrapper.weightage.getProject()));
+                tv = findViewById(R.id.textView67);
+                tv.setText(String.valueOf(wrapper.weightage.getMid1()));
+                tv = findViewById(R.id.textView68);
+                tv.setText(String.valueOf(wrapper.weightage.getMid2()));
+                tv = findViewById(R.id.textView69);
+                tv.setText(String.valueOf(wrapper.weightage.getFinalExam()));
+                if (wrapper.assessment != null) {
+                    float assignment = wrapper.assessment.getA1_obt() + wrapper.assessment.getA2_obt() + wrapper.assessment.getA3_obt();
+                    assignment = assignment / (float) (wrapper.assessment.getA1_tot() + wrapper.assessment.getA2_tot() + wrapper.assessment.getA3_tot());
+                    assignment = assignment * (float) wrapper.weightage.getAssignments();
+                    float project = (float) wrapper.assessment.getProj_obt() / (float) wrapper.assessment.getProj_tot();
+                    project = project * (float) wrapper.weightage.getProject();
+                    float mid1 = (float) wrapper.assessment.getMid1_obt() / (float) wrapper.assessment.getMid1_tot();
+                    mid1 = mid1 * (float) wrapper.weightage.getMid1();
+                    float mid2 = (float) wrapper.assessment.getMid2_obt() / (float) wrapper.assessment.getMid2_tot();
+                    mid2 = mid2 * (float) wrapper.weightage.getMid2();
+                    float Final = (float) wrapper.assessment.getFinal_obt() / (float) wrapper.assessment.getFinal_tot();
+                    Final = Final * (float) wrapper.weightage.getFinalExam();
+                    tv = findViewById(R.id.textView48);
+                    tv.setText(String.valueOf((int)assignment));
+                    tv = findViewById(R.id.textView62);
+                    tv.setText(String.valueOf((int)project));
+                    tv = findViewById(R.id.textView57);
+                    tv.setText(String.valueOf((int)Final));
+                    tv = findViewById(R.id.textView65);
+                    tv.setText(String.valueOf((int)mid1));
+                    tv = findViewById(R.id.textView54);
+                    tv.setText(String.valueOf((int)mid2));
+                    if(flag==true)
+                    {
+                        myAsync3 obj = new myAsync3();
+                        obj.execute(assignment,project,mid1,mid2,Final);
+                        flag=false;
+                    }
+                }
+            }
+        }
+
+        @Override
+        protected Wrapper doInBackground(Void... voids) {
+            int uid = getIntent().getIntExtra("userID", -1);
+            String cn = getIntent().getStringExtra("courseName");
+            CourseLogDB courseLogDB = CourseLogDB.getInstance(getApplicationContext());
+            Wrapper w = new Wrapper();
+            WeightageDao weightageDao = courseLogDB.weightageModel();
+            w.weightage = weightageDao.getWeightage(uid, cn);
+            AssessmentDao assessmentDao = courseLogDB.assessmentModel();
+            w.assessment = assessmentDao.getAssessment(uid, cn);
+            return w;
+        }
+    }
+    private class myAsync3 extends AsyncTask<Float, Void, Void>
     {
-        float obt=0;int tot=0;
-        if(final_a!=-9999)
-        {
-            obt = obt + final_a*final_w;
-            tot = tot + final_w;
+        @Override
+        protected Void doInBackground(Float... params) {
+            CourseLogDB courseLogDB = CourseLogDB.getInstance(getApplicationContext());
+            CourseDao courseDao = courseLogDB.courseModel();
+            int uid = getIntent().getIntExtra("userID", -1);
+            String cname = getIntent().getStringExtra("courseName");
+            Course course = new Course(cname, uid, params[0]+params[1]+params[2]+params[3]+params[4], 100);
+            courseDao.deleteCourse(uid,cname);
+            courseDao.insertCourse(course);
+            return null;
         }
-        if(assignment_a!=-9999)
-        {
-            obt = obt + assignment_a*assignment_w;
-            tot = tot + assignment_w;
-        }
-        if(project_a!=-9999)
-        {
-            obt = obt + project_a*project_w;
-            tot = tot + project_w;
-        }
-        if(mid1_a!=-9999)
-        {
-            obt = obt + mid1_a*mid1_w;
-            tot = tot + mid1_w;
-        }
-        if(mid2_a!=-9999)
-        {
-            obt = obt + mid2_a*mid2_w;
-            tot = tot + mid2_w;
+    }
+    private class myAsync extends AsyncTask<Void, Void, User> {
+        @Override
+        protected User doInBackground(Void... voids) {
+            CourseLogDB courseLogDB = CourseLogDB.getInstance(getApplicationContext());
+            UserDao u = courseLogDB.userModel();
+            User obj;
+            obj = u.getUser(getIntent().getIntExtra("userID", -1));
+            return obj;
         }
 
-        Intent i = new Intent();
-
-        i.putExtra("obtained",obt);
-        i.putExtra("total",tot);
-        setResult(RESULT_OK,i);
-        finish();
+        @Override
+        protected void onPostExecute(User user) {
+            TextView info = findViewById(R.id.textView14);
+            info.setText(getIntent().getStringExtra("courseName"));
+            info = findViewById(R.id.textView44);
+            info.setText(user.getName());
+            info = findViewById(R.id.textView45);
+            info.setText(user.getRoll_no());
+            info = findViewById(R.id.textView46);
+            info.setText(user.getBatch());
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode==2 && final_w == NULL && resultCode == RESULT_OK)
-        {
-            TextView error = (TextView) findViewById(R.id.textView50);
-            error.setText("Set weightage first");
-            return;
-        }
-
-
-        if(requestCode==1 && resultCode == RESULT_OK) {
-            final_w = data.getIntExtra("final_w", 0);
-            project_w = data.getIntExtra("project_w", 0);
-            mid1_w = data.getIntExtra("mid1_w", 0);
-            mid2_w = data.getIntExtra("mid2_w", 0);
-            assignment_w = data.getIntExtra("assignment_w", 0);
-
-            TextView tv = (TextView) findViewById(R.id.textView69);
-            tv.setText(Integer.toString(final_w));
-            tv = (TextView) findViewById(R.id.textView64);
-            tv.setText(Integer.toString(project_w));
-            tv = (TextView) findViewById(R.id.textView67);
-            tv.setText(Integer.toString(mid1_w));
-            tv = (TextView) findViewById(R.id.textView68);
-            tv.setText(Integer.toString(mid2_w));
-            tv = (TextView) findViewById(R.id.textView60);
-            tv.setText(Integer.toString(assignment_w));
-            tv = (TextView) findViewById(R.id.textView50);
-            tv.setText("");
-
-            if(assignment_a!=-9999){
-                tv = (TextView) findViewById(R.id.textView48);
-                tv.setText(Float.toString(assignment_a*assignment_w));}
-            if(project_a!=-9999){
-                tv = (TextView) findViewById(R.id.textView62);
-                tv.setText(Float.toString(project_a*project_w));}
-            if(final_a!=-9999){
-                tv = (TextView) findViewById(R.id.textView57);
-                tv.setText(Float.toString(final_a*final_w));}
-            if(mid1_a!=-9999){
-                tv = (TextView) findViewById(R.id.textView65);
-                tv.setText(Float.toString(mid1_a*mid1_w));}
-            if(mid2_a!=-9999){
-                tv = (TextView) findViewById(R.id.textView54);
-                tv.setText(Float.toString(mid2_a*mid2_w));}
-        }
-
-
         if(requestCode==2 && resultCode==RESULT_OK)
         {
-            final_a = data.getFloatExtra("final", 0);
-            project_a = data.getFloatExtra("project", 0);
-            mid1_a = data.getFloatExtra("mid1", 0);
-            mid2_a = data.getFloatExtra("mid2", 0);
-            assignment_a = data.getFloatExtra("assignment", 0);
-            TextView tv;
-            if(assignment_a!=-9999) {
-                tv = (TextView) findViewById(R.id.textView48);
-                tv.setText(Float.toString(assignment_a*assignment_w));
-            }
-            if(project_a!=-9999) {
-                tv = (TextView) findViewById(R.id.textView62);
-                tv.setText(Float.toString(project_a * project_w));
-            }
-
-            if(final_a!=-9999) {
-                tv = (TextView) findViewById(R.id.textView57);
-                tv.setText(Float.toString(final_a * final_w));
-            }
-
-            if(mid1_a!=-9999) {
-                tv = (TextView) findViewById(R.id.textView65);
-                tv.setText(Float.toString(mid1_a * mid1_w));
-            }
-
-            if(mid2_a!=-9999) {
-                tv = (TextView) findViewById(R.id.textView54);
-                tv.setText(Float.toString(mid2_a * mid2_w));
-            }
+            flag=true;
         }
     }
 }
